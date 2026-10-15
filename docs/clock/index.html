@@ -1,16 +1,23 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:#0b1626;cursor:none}
 #sky{position:fixed;inset:0;transition:background 60s linear}
-svg{position:fixed;left:0;bottom:0;width:100%;height:62vh}
-.wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;font-family:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;text-shadow:0 4px 30px rgba(0,0,0,.35)}
-#time{font-size:min(30vw,52vh);font-weight:300;letter-spacing:-.04em;line-height:.95;font-variant-numeric:tabular-nums}
-#ampm{font-size:.22em;font-weight:400;letter-spacing:0;margin-left:.15em;opacity:.85}
-#date{font-size:min(5.2vw,8vh);font-weight:400;margin-top:2vh;opacity:.95}
-.star{position:fixed;width:2px;height:2px;background:#fff;border-radius:50%;opacity:.0;transition:opacity 60s}
+svg{position:fixed;left:0;bottom:0;width:100%;height:58vh}
+.wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;font-family:Inter,"Segoe UI",system-ui,sans-serif;text-shadow:0 4px 30px rgba(0,0,0,.4)}
+#time{font-family:Orbitron,monospace;font-weight:700;font-size:min(17vw,34vh);letter-spacing:.02em;line-height:1;font-variant-numeric:tabular-nums;color:#eaf6ff;text-shadow:0 0 28px rgba(120,200,255,.45),0 4px 30px rgba(0,0,0,.4)}
+#sec{font-size:.32em;opacity:.8;margin-left:.12em}
+#ampm{font-size:.26em;margin-left:.3em;opacity:.85;font-weight:500}
+#date{font-size:min(4.6vw,7vh);font-weight:500;margin-top:3vh;letter-spacing:.01em}
+#wx{margin-top:4vh;display:flex;align-items:center;gap:2.2vw;font-size:min(3.6vw,5.4vh);background:rgba(0,0,0,.22);padding:1.4vh 2.6vw;border-radius:99px;backdrop-filter:blur(6px)}
+#wx .ic{font-size:1.5em;line-height:1}
+#wx .t{font-family:Orbitron,monospace;font-weight:700;font-size:1.25em}
+#wx .hl{opacity:.85;font-size:.8em}
+.star{position:fixed;width:2px;height:2px;background:#fff;border-radius:50%;opacity:0;transition:opacity 60s}
 </style></head><body>
 <div id="sky"></div><div id="stars"></div>
 <svg viewBox="0 0 1600 600" preserveAspectRatio="none">
@@ -18,18 +25,32 @@ svg{position:fixed;left:0;bottom:0;width:100%;height:62vh}
  <path id="m2" d="M0 420 L140 340 L300 400 L460 300 L620 390 L800 320 L980 410 L1140 330 L1300 400 L1460 340 L1600 390 L1600 600 L0 600Z"/>
  <path id="m3" d="M0 500 Q200 440 400 490 T800 480 T1200 500 T1600 470 L1600 600 L0 600Z"/>
 </svg>
-<div class="wrap"><div id="time"></div><div id="date"></div></div>
+<div class="wrap">
+ <div id="time"></div>
+ <div id="date"></div>
+ <div id="wx" style="display:none"><span class="ic" id="wic"></span><span class="t" id="wt"></span><span id="wd"></span><span class="hl" id="whl"></span></div>
+</div>
 <script>
-const T=document.getElementById('time'),D=document.getElementById('date'),S=document.getElementById('sky');
-const P={night:['#0b1626','#1c2c4a',['#16233a','#101a2c','#0a1220']],dawn:['#f4a582','#7a8fbf',['#5b5f86','#3f4566','#272b45']],day:['#7cc3f0','#d8eefb',['#5f8f7a','#3f6e5a','#24503f']],dusk:['#2f3d6b','#e98d6b',['#4a3f62','#33294a','#1f1832']]};
-function phase(h){return h<6||h>=21?'night':h<9?'dawn':h<17?'day':'dusk'}
-const st=document.getElementById('stars');for(let i=0;i<90;i++){const s=document.createElement('div');s.className='star';s.style.left=Math.random()*100+'vw';s.style.top=Math.random()*45+'vh';st.appendChild(s)}
+const LAT=43.6603, LON=-79.3850; // Bay & College, Toronto
+const $=id=>document.getElementById(id), S=$('sky');
+const P={night:['#0b1626','#1c2c4a',['#16233a','#101a2c','#0a1220']],dawn:['#f4a582','#7a8fbf',['#5b5f86','#3f4566','#272b45']],day:['#5fb0e6','#cfe9fa',['#5f8f7a','#3f6e5a','#24503f']],dusk:['#2f3d6b','#e98d6b',['#4a3f62','#33294a','#1f1832']]};
+const phase=h=>h<6||h>=21?'night':h<9?'dawn':h<17?'day':'dusk';
+for(let i=0;i<90;i++){const s=document.createElement('div');s.className='star';s.style.left=Math.random()*100+'vw';s.style.top=Math.random()*40+'vh';$('stars').appendChild(s)}
 let last='';
-function tick(){const n=new Date();let h=n.getHours(),m=n.getMinutes();
- T.innerHTML=((h%12)||12)+':'+String(m).padStart(2,'0')+'<span id="ampm">'+(h<12?'AM':'PM')+'</span>';
- D.textContent=n.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
- const p=phase(h);if(p!==last){last=p;const c=P[p];S.style.background=`linear-gradient(to bottom, ${c[0]}, ${c[1]})`;['m1','m2','m3'].forEach((id,i)=>document.getElementById(id).setAttribute('fill',c[2][i]));document.querySelectorAll('.star').forEach(s=>s.style.opacity=p==='night'?(.3+Math.random()*.7):0)}}
+function tick(){const n=new Date(),h=n.getHours(),m=n.getMinutes(),s=n.getSeconds();
+ $('time').innerHTML=((h%12)||12)+':'+String(m).padStart(2,'0')+'<span id="sec">:'+String(s).padStart(2,'0')+'</span><span id="ampm">'+(h<12?'AM':'PM')+'</span>';
+ $('date').textContent=n.toLocaleDateString('en-CA',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+ const p=phase(h);if(p!==last){last=p;const c=P[p];S.style.background=`linear-gradient(to bottom, ${c[0]}, ${c[1]})`;['m1','m2','m3'].forEach((id,i)=>$(id).setAttribute('fill',c[2][i]));document.querySelectorAll('.star').forEach(x=>x.style.opacity=p==='night'?(.3+Math.random()*.7):0)}}
 tick();setInterval(tick,1000);
+const W={0:['☀️','Clear'],1:['🌤️','Mostly clear'],2:['⛅','Partly cloudy'],3:['☁️','Cloudy'],45:['🌫️','Fog'],48:['🌫️','Fog'],51:['🌦️','Drizzle'],53:['🌦️','Drizzle'],55:['🌦️','Drizzle'],56:['🌧️','Freezing drizzle'],57:['🌧️','Freezing drizzle'],61:['🌧️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],66:['🌧️','Freezing rain'],67:['🌧️','Freezing rain'],71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['❄️','Heavy snow'],77:['🌨️','Snow grains'],80:['🌦️','Showers'],81:['🌧️','Showers'],82:['⛈️','Heavy showers'],85:['🌨️','Snow showers'],86:['❄️','Snow showers'],95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm'],99:['⛈️','Thunderstorm']};
+async function weather(){try{
+ const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=America%2FToronto&forecast_days=1`);
+ const j=await r.json();const c=j.current;let [ic,txt]=W[c.weather_code]||['🌡️',''];
+ if(!c.is_day&&(c.weather_code<=1))ic='🌙';
+ $('wic').textContent=ic;$('wt').textContent=Math.round(c.temperature_2m)+'°C';$('wd').textContent=txt+' · Toronto';
+ $('whl').textContent='H '+Math.round(j.daily.temperature_2m_max[0])+'°  L '+Math.round(j.daily.temperature_2m_min[0])+'°';
+ $('wx').style.display='flex';}catch(e){}}
+weather();setInterval(weather,15*60*1000);
 async function wake(){try{await navigator.wakeLock.request('screen')}catch(e){}}
 wake();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake()});
 document.addEventListener('dblclick',()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()});
